@@ -58,7 +58,6 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
 
 # ########################################### SPECIFY THE DATA PATHs ###########################################
 
-<<<<<<< HEAD
 def main():
     noneCounter=0
     # path = '../Data/Train/'
@@ -100,35 +99,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-=======
-
-noneCounter=0
-# path = '../Data/Train/'
-path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
-
-# savePath = '../Data/'
-savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/'
-
-H4_list = []
-
-print("Begin Data Generation .... ")
-
-for i in range(1,5001):
-#     random_ind = np.random.choice(range(1, 5000), replace= False)
-    image = plt.imread( path + str(i) + '.jpg')
-    Patch_a, Patch_b, H4,_ = getPatches(image, patch_size = 128, pixel_shift_limit = 30, border_margin = 40) # make sure border_margin > pixelshift_limit
-    if ((Patch_a is None)&(Patch_b is None)&(H4 is None)):
-        print("encountered None return")
-        noneCounter+=1
-    else: 
-        pathA = savePath +'A/' + str(i) + '.jpg'
-        pathB = savePath +'B/' + str(i) + '.jpg'
-        cv2.imwrite(pathA, Patch_a)
-        cv2.imwrite(pathB, Patch_b)
-        H4_list.append(np.hstack((H4[:,0] , H4[:,1])))
-print("done")
-print("No. of labels: ", len(H4_list),"No. of patches generated: ",(i-noneCounter))
-
-df = pd.DataFrame(H4_list)
-df.to_csv(savePath+"H4.csv")
->>>>>>> 686d9afd8bf7ebcb7f8629c887f3dcad5275a76a
