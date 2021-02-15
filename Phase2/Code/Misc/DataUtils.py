@@ -35,10 +35,10 @@ def SetupAll(BasePath, CheckPointPath):
     Trainabels - Labels corresponding to Train
     """
     # Setup DirNames
-    DirNamesTrain =  SetupDirNames(BasePath + "/Train_dummy/ImageFileNames.csv")
+    DirNamesTrain =  SetupDirNames(BasePath + "/Train_synthetic/ImageFileNames.csv")
 
     # Read and Setup Labels
-    TrainLabels = ReadLabels(BasePath + "/Train_dummy/H4.csv")
+    TrainLabels = ReadLabels(BasePath + "/Train_synthetic/H4.csv")
 
     # If CheckPointPath doesn't exist make the path
     if(not (os.path.isdir(CheckPointPath))):
