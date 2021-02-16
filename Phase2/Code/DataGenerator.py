@@ -44,12 +44,10 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
         # find H inverse of usin patch coordinates of P_a, P_b
         H_inv = np.linalg.inv(cv2.getPerspectiveTransform(np.float32(pts1), np.float32(pts2))) 
         
-        gray_imageB = cv2.warpPerspective(gray_image, H_inv, (w,h))
-        Patch_a = gray_image[y:y+patch_size, x:x+patch_size]
-        Patch_b = gray_imageB[y:y+patch_size, x:x+patch_size] 
-        Patch_a = (Patch_a*255).astype(np.uint8)
-        Patch_b = (Patch_b*255).astype(np.uint8)
-        
+        imageB = cv2.warpPerspective(image, H_inv, (w,h))
+
+        Patch_a = image[y:y+patch_size, x:x+patch_size]
+        Patch_b = imageB[y:y+patch_size, x:x+patch_size]
         H4 = (pts2 - pts1).astype(np.float32) 
 
         return Patch_a, Patch_b, H4, np.dstack((pts1,pts2))
@@ -63,11 +61,10 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
 def main():
     noneCounter=0
     # path = '../Data/Train/'
-#     path = '/home/sakshi/courses/CMSC733/sakshi_p1/Phase2/Data/Train/'
-    path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
+    path = '/home/sakshi/courses/CMSC733/sakshi_p1/Phase2/Data/Train/'
 
     # savePath = '../Data/'
-    savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
+    savePath = '/home/sakshi/courses/CMSC733/sakshi_p1/Phase2/Data/Train_dummy/'
 
     H4_list = []
     image_name_list = [] #sakshi
