@@ -246,8 +246,6 @@ generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_si
 print('TRAINING...')                             
 model.fit_generator(generator = generator,steps_per_epoch = num_terations_per_epoch,  epochs = epochs, callbacks=[checkpoint])
 
-
-
 all_labels = pd.read_csv("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/H4.csv", index_col =False)
 all_labels = all_labels.to_numpy()
 

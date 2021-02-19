@@ -20,7 +20,6 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
         else:
             gray_image = image
 
-        gray_image = cv2.normalize(gray_image.astype(np.float32), None, 0.0, 1.0, cv2.NORM_MINMAX)
         # pixel_shift_limit =  amount of random shift that the corner points can go through
         # make sure border_margin > pixel_shift_limit
          #  leave some margin space along borders 
@@ -45,11 +44,9 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
         H_inv = np.linalg.inv(cv2.getPerspectiveTransform(np.float32(pts1), np.float32(pts2))) 
         
         gray_imageB = cv2.warpPerspective(gray_image, H_inv, (w,h))
+
         Patch_a = gray_image[y:y+patch_size, x:x+patch_size]
-        Patch_b = gray_imageB[y:y+patch_size, x:x+patch_size] 
-        Patch_a = (Patch_a*255).astype(np.uint8)
-        Patch_b = (Patch_b*255).astype(np.uint8)
-        
+        Patch_b = gray_imageB[y:y+patch_size, x:x+patch_size]
         H4 = (pts2 - pts1).astype(np.float32) 
 
         return Patch_a, Patch_b, H4, np.dstack((pts1,pts2))
@@ -61,20 +58,28 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
 # ########################################### SPECIFY THE DATA PATHs ###########################################
 
 def main():
+
     noneCounter=0
-    # path = '../Data/Train/'
-#     path = '/home/sakshi/courses/CMSC733/sakshi_p1/Phase2/Data/Train/'
-    path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
+    is_Train = False
 
-    # savePath = '../Data/'
-    savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
-
+    if is_Train  == True:
+        print("Generating Train data ......")
+        path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
+        savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
+        imCount = 5001
+    else:
+        print("Generating Test data ......")
+        path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val/'        
+        # savePath = '../Data/'
+        savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/'
+        imCount = 1000
+        
     H4_list = []
     image_name_list = [] #sakshi
 
     print("Begin Data Generation .... ")
 
-    for i in range(1,5001):
+    for i in range(1,imCount):
         #random_ind = np.random.choice(range(1, 5000), replace= False)
         image = plt.imread( path + str(i) + '.jpg')
         Patch_a, Patch_b, H4,_ = getPatches(image, patch_size = 128, pixel_shift_limit = 30, border_margin = 40) # make sure border_margin > pixelshift_limit
