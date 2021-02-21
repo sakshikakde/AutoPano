@@ -52,6 +52,7 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
 # ########################################### SPECIFY THE DATA PATHs ###########################################
 
 def main():
+    attempts = ['a','b','c','d','e']
     is_Train_options = [True,False]
 
     for s in is_Train_options:
@@ -61,57 +62,61 @@ def main():
         if is_Train  == True:
             print("Generating Train data ......")
             path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
-            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_dummy/'
+            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
             imCount = 5001
         else:
             print("Generating Test data ......")
             path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val/'   
             # savePath = '../Data/'
-            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_dummy/'
+            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/'
             imCount = 1000
 
         H4_list = []
         image_name_list = [] 
         pointsList = []
         print("Begin Data Generation .... ")
+        
+        for a in attempts:
+            print("Doing attempt:  ",a)
+            for i in range(1,imCount):
 
-        for i in range(1,imCount):
+                #random_ind = np.random.choice(range(1, 5000), replace= False)
+                imageA = cv2.imread(path + str(i) + '.jpg')
+                imageA = cv2.resize(imageA, (320,240), interpolation = cv2.INTER_AREA)
+
+                Patch_a, Patch_b, H4, imageB, points = getPatches(imageA, patch_size = 128, pixel_shift_limit = 32, border_margin = 42) # make sure border_margin > pixelshift_limit
+                if ((Patch_a is None)&(Patch_b is None)&(H4 is None)):
+                    print("encountered None return")
+                    noneCounter+=1
+                else: 
+                    pathA = savePath +'PA/' + str(i) +a+ '.jpg'
+                    pathB = savePath +'PB/' + str(i) +a+ '.jpg'
+                    impathA = savePath +'IA/' + str(i) +a+ '.jpg'
+                    impathB = savePath +'IB/' + str(i) +a+ '.jpg'
+
+                    cv2.imwrite(pathA, Patch_a)
+                    cv2.imwrite(pathB, Patch_b)
+                    cv2.imwrite(impathA, imageA)
+                    cv2.imwrite(impathB, imageB)
+
+                    H4_list.append(np.hstack((H4[:,0] , H4[:,1])))
+                    pointsList.append(points)
+                    image_name_list.append(str(i) +a+ '.jpg')
             
-            #random_ind = np.random.choice(range(1, 5000), replace= False)
-            imageA = cv2.imread(path + str(i) + '.jpg')
-            imageA = cv2.resize(imageA, (320,240), interpolation = cv2.INTER_AREA)
-
-            Patch_a, Patch_b, H4, imageB, points = getPatches(imageA, patch_size = 128, pixel_shift_limit = 32, border_margin = 42) # make sure border_margin > pixelshift_limit
-            if ((Patch_a is None)&(Patch_b is None)&(H4 is None)):
-                print("encountered None return")
-                noneCounter+=1
-            else: 
-                pathA = savePath +'PA/' + str(i) + '.jpg'
-                pathB = savePath +'PB/' + str(i) + '.jpg'
-                impathA = savePath +'IA/' + str(i) + '.jpg'
-                impathB = savePath +'IB/' + str(i) + '.jpg'
-
-                cv2.imwrite(pathA, Patch_a)
-                cv2.imwrite(pathB, Patch_b)
-                cv2.imwrite(impathA, imageA)
-                cv2.imwrite(impathB, imageB)
-
-                H4_list.append(np.hstack((H4[:,0] , H4[:,1])))
-                pointsList.append(points)
-                image_name_list.append(str(i) + '.jpg')
             
-            
-    print("done")
-    print("No. of labels: ", len(H4_list),"No. of patches generated: ",(i-noneCounter))
+        print("done")
+        print("No. of labels: ", len(H4_list),"No. of images: ", len(image_name_list), "No. of points: ", np.array(pointsList).shape,  "No. of patches generated: ",(i-noneCounter))
 
-    df = pd.DataFrame(H4_list)
-    df.to_csv(savePath+"H4.csv", index=False)
-    
-    np.save(savePath+"pointsList.npy", np.array(pointsList))
+        df = pd.DataFrame(H4_list)
+        df.to_csv(savePath+"H4.csv", index=False)
+        print("saved H4 data in:  ", savePath)
 
-    df = pd.DataFrame(image_name_list)#sakshi
-    df.to_csv(savePath+"ImageFileNames.csv", index=False)
-    
+        np.save(savePath+"pointsList.npy", np.array(pointsList))
+        print("saved points data in:  ", savePath)
+        
+        df = pd.DataFrame(image_name_list)#sakshi
+        df.to_csv(savePath+"ImageFileNames.csv", index=False)
+        print("saved ImageFiles list  in:  ", savePath)
 
 
 if __name__ == '__main__':
