@@ -110,7 +110,7 @@ class loadDataBatches_gen(Sequence):
     
 print("################################################ DataGenerator defined")
 
-def HomographyNet():
+def supervised_HomographyNet():
 
 #     hidden_layer_size, num_classes = 1000, 8
     input_shape = (128, 128, 2)
@@ -174,7 +174,7 @@ print("################################################ Model and loss defined")
 ####################################################### FIRST TRAINING 
 print("################################################ Compiling Model, optimizer and loss functions")
 
-model = HomographyNet()
+model = supervised_HomographyNet()
 adam = optimizers.Adam(lr=0.0001)
 model.compile(loss= L2_loss, optimizer=adam, metrics=['mean_absolute_error'])
 
