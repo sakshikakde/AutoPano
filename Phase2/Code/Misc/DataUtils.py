@@ -21,7 +21,7 @@ import pandas as pd
 # Don't generate pyc codes
 sys.dont_write_bytecode = True
 
-def SetupAll(BasePath, CheckPointPath, is_training = True):
+def SetupAll(BasePath, CheckPointPath):
     """
     Inputs: 
     BasePath is the base path where Images are saved without "/" at the end
@@ -34,19 +34,10 @@ def SetupAll(BasePath, CheckPointPath, is_training = True):
     NumTestRunsPerEpoch - Number of passes of Val data with MiniBatchSize 
     Trainabels - Labels corresponding to Train
     """
-    if is_training: 
-        # Setup DirNames
-        DirNamesTrain =  SetupDirNames(BasePath + "/Train_synthetic/ImageFileNames.csv")
-
-        # Read and Setup Labels
-        TrainLabels = ReadLabels(BasePath + "/Train_synthetic/H4.csv")
-        
-    else:
-        # Setup DirNames
-        DirNamesTrain =  SetupDirNames(BasePath + "/Val_synthetic/ImageFileNames.csv")
-
-        # Read and Setup Labels
-        TrainLabels = ReadLabels(BasePath + "/Val_synthetic/H4.csv")
+    # Setup DirNames
+    DirNamesTrain =  SetupDirNames(BasePath + "/ImageFileNames.csv")
+    # Read and Setup Labels
+    TrainLabels = ReadLabels(BasePath + "/H4.csv")
 
     # If CheckPointPath doesn't exist make the path
     if(not (os.path.isdir(CheckPointPath))):
@@ -56,7 +47,7 @@ def SetupAll(BasePath, CheckPointPath, is_training = True):
     SaveCheckPoint = 100 
     
     # Image Input Shape
-    ImageSize = [32, 32, 3]
+    ImageSize = [128, 128, 1]
     NumTrainSamples = len(DirNamesTrain)
 
     return DirNamesTrain, SaveCheckPoint, ImageSize, NumTrainSamples, TrainLabels
