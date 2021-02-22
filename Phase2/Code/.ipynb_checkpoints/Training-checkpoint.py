@@ -55,7 +55,6 @@ class loadDataBatches_gen(Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.indexes = np.arange(len(self.files_in_dir))
-#         self.indexes = np.arange(128)
 
     def __len__(self):
         # returns the number of batches
@@ -81,16 +80,16 @@ class loadDataBatches_gen(Sequence):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
         images_batch = []
         labels_batch = []
+        pixel_shift_limit = 30
         for i in indices:
 
             #Get one row of x,Y
             image1_name = self.base_path + os.sep + "Train_synthetic/PA/" + self.files_in_dir[i, 0]
-            image1 = cv2.imread(image1_name)[:,:,0]
-#             image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+            image1 = cv2.imread(image1_name, cv2.IMREAD_GRAYSCALE)
 
             image2_name = self.base_path + os.sep + "Train_synthetic/PB/" + self.files_in_dir[i, 0] 
-            image2 = cv2.imread(image2_name)[:,:,0]
-#             image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+            image2 = cv2.imread(image2_name, cv2.IMREAD_GRAYSCALE)
+
 
             if(image1 is None) or (image2 is None):
                 continue
@@ -102,6 +101,9 @@ class loadDataBatches_gen(Sequence):
 
             images_batch.append(image)
             labels_batch.append(labels_in_dir[i,:])
+
+#             labels = (labels_in_dir[i,:] / pixel_shift_limit).astype(np.float32) 
+#             labels_batch.append(labels)
 
         return np.array(images_batch), np.array(labels_batch) 
         
@@ -116,8 +118,6 @@ def HomographyNet():
     pool_size = 2
     filters = 64
     dropout = 0.5
-
-    kernel_initializer = VarianceScaling(scale=2.0)
     
     model = Sequential()
     model.add(InputLayer(input_shape))
@@ -172,80 +172,77 @@ def L2_loss(y_true, y_pred):
 print("################################################ Model and loss defined")
 
 ####################################################### FIRST TRAINING 
-# print("################################################ Compiling Model, optimizer and loss functions")
+print("################################################ Compiling Model, optimizer and loss functions")
 
-# model = HomographyNet()
-# sgd = optimizers.SGD(lr=0.005, momentum=0.9)
-# model.compile(loss= L2_loss, optimizer=sgd, metrics=['mean_absolute_error'])
+model = HomographyNet()
+adam = optimizers.Adam(lr=0.0001)
+model.compile(loss= L2_loss, optimizer=adam, metrics=['mean_absolute_error'])
 
-# print("Printing model summary ..... \n")
-# print(model.summary())
-
-
-# print("################################################ Define absolute paths of files .... ")
-# base_path = "/home/gokul/CMSC733/hgokul_p1/Phase2/Data"
-# CheckPointPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised3/"
-# files_in_dir, SaveCheckPoint, ImageSize, number_of_training_samples, labels_in_dir = SetupAll(base_path, CheckPointPath, True) # get Train meeta data
-
-# ckptPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised3/weights-{epoch:02d}-{loss:.2f}.hdf5"
-# checkpoint = ModelCheckpoint(ckptPath, monitor='loss', verbose=1)
+print("Printing model summary ..... \n")
+print(model.summary())
 
 
-# print("################################################ Define training parameters .... ")
-# epochs = 10
-# batch_size = 64
-# #  = len(files_in_dir)
-# num_iterations_per_epoch = int(128 / batch_size)
+print("################################################ Define absolute paths of files .... ")
+base_path = "/home/gokul/CMSC733/hgokul_p1/Phase2/Data"
+CheckPointPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/25kmodel/"
+files_in_dir, SaveCheckPoint, ImageSize, number_of_training_samples, labels_in_dir = SetupAll(base_path, CheckPointPath, True) # get Train meta data
+ckptPath = CheckPointPath+ "weights-{epoch:02d}-{loss:.2f}.ckpt"
+checkpoint = ModelCheckpoint(ckptPath, monitor='loss', save_weights_only = True, verbose=1,  save_best_only = True, mode = min)
+
+print("################################################ Define training parameters .... ")
+epochs = 100
+batch_size = 64
+num_iterations_per_epoch = int(number_of_training_samples / batch_size)
+print("Number of training samples: ", number_of_training_samples)
        
+train_generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_size, True)
+X,y = train_generator[1]
+print("Batch Shape,:  ", X.shape,y.shape )
        
-# train_generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_size, False)
-# X,y = train_generator[1]
-# print(X.shape,y.shape )
+print('Begin Training .....')                             
+history_callback = model.fit_generator(generator = train_generator,steps_per_epoch = num_iterations_per_epoch,  epochs = epochs, callbacks=[checkpoint])
 
-# # files_in_dir, SaveCheckPoint, ImageSize, number_of_test_samples, labels_in_dir = SetupAll(base_path, CheckPointPath, False)  
-# # val_steps = int(number_of_test_samples / batch_size)
-# # val_generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_size, True)
+loss_history = history_callback.history["loss"]
+np.savetxt("../Results/25kmodel/lossHistory.txt", np.array(loss_history), delimiter=",")
+
+error_history = history_callback.history["mean_absolute_error"]
+np.savetxt("../Results/25kmodel/errorHistory.txt", np.array(error_history), delimiter=",")
        
-# print('Begin Training .....')                             
-# history_callback = model.fit_generator(generator = train_generator,steps_per_epoch = num_iterations_per_epoch,  epochs = epochs, callbacks=[checkpoint])
+print("################################################ Done Training")
 
-# loss_history = history_callback.history["loss"]
-# np.savetxt("loss_history3.txt", np.array(loss_history), delimiter=",")
+model.save('../Results/25kmodel/model25k.h5')
 
-       
-       
-# print("################################################ Done Training")
-
-# model.save('model_no_normalise.h5')
-
-# print("################################################ Model Saved")
+print("################################################ Model Saved")
 
 
 ################################################################## RELOAD  AND TRAIN
 
-from keras.models import load_model
+# from keras.models import load_model
 
-checkpoint = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised/weights-49-15.25.hdf5"
-model = load_model(checkpoint, custom_objects={'L2_loss': L2_loss})
+# checkpoint = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised/weights-49-15.25.hdf5"
+# model = load_model(checkpoint, custom_objects={'L2_loss': L2_loss})
 
-print(model.summary())
+# print(model.summary())
 
-base_path = "/home/gokul/CMSC733/hgokul_p1/Phase2/Data"
-CheckPointPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised2/"
-files_in_dir, SaveCheckPoint, ImageSize, NumTrainSamples, labels_in_dir = SetupAll(base_path, CheckPointPath)
+# base_path = "/home/gokul/CMSC733/hgokul_p1/Phase2/Data"
+# CheckPointPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/supervised2/"
+# files_in_dir, SaveCheckPoint, ImageSize, NumTrainSamples, labels_in_dir = SetupAll(base_path, CheckPointPath)
 
-ckptPath = CheckPointPath + "weights-{epoch:02d}-{loss:.2f}.hdf5"
-checkpoint = ModelCheckpoint(ckptPath, monitor='loss', verbose=1)
+# ckptPath = CheckPointPath + "weights-{epoch:02d}-{loss:.2f}.hdf5"
+# checkpoint = ModelCheckpoint(ckptPath, monitor='loss', verbose=1)
                              
-epochs = 1
-number_of_training_samples = 4985
-batch_size = 64
-num_terations_per_epoch = int(number_of_training_samples / batch_size)
+# epochs = 1
+# number_of_training_samples = 4985
+# batch_size = 64
+# num_terations_per_epoch = int(number_of_training_samples / batch_size)
 
-generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_size, True)
-print('TRAINING...')                             
-model.fit_generator(generator = generator,steps_per_epoch = num_terations_per_epoch,  epochs = epochs, callbacks=[checkpoint])
+# generator = loadDataBatches_gen(base_path, files_in_dir, labels_in_dir, batch_size, True)
+# print('TRAINING...')                             
+# model.fit_generator(generator = generator,steps_per_epoch = num_terations_per_epoch,  epochs = epochs, callbacks=[checkpoint])
 
+################################################################## TEST RESULT
+print("Begin Testing .....")
+n = 1000
 all_labels = pd.read_csv("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/H4.csv", index_col =False)
 all_labels = all_labels.to_numpy()
 
@@ -253,16 +250,23 @@ all_patchNames = pd.read_csv("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synt
 all_patchNames = all_patchNames.to_numpy()
 
 testPatches = []
-for p in all_patchNames:
-    tPatchA = cv2.imread("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/PA/"+ str(p[0]))[:,:,0]
-    tPatchB = cv2.imread("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/PB/"+ str(p[0]))[:,:,0]
+for p in all_patchNames[:n]:
+    tPatchA = cv2.imread("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/PA/"+ str(p[0]), cv2.IMREAD_GRAYSCALE)
+    tPatchB = cv2.imread("/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/PB/"+ str(p[0]), cv2.IMREAD_GRAYSCALE)
     tPatch = np.dstack((tPatchA, tPatchB))    
     testPatches.append(tPatch)
     
 testPatches = np.array(testPatches)
 
-model.predict(testPatches, all_labels)
-# model.save('model2.h5')
+y_preds = model.predict(testPatches)
+
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+mae = mean_absolute_error(y_preds, all_labels[:n])
+mse = mean_squared_error(y_preds, all_labels[:n])
+np.savetxt("../Results/25kmodel/TestResults.txt", np.array([mae,mse]), delimiter = ",")
+
+# model.save('modelnormalised.h5')
 
 # print("################################################ Model Saved")
 
