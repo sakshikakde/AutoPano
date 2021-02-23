@@ -81,9 +81,9 @@ def TensorDLT(H4, corners_a , batch_size):
     h_ones = tf.ones([batch_size, 1, 1])
     H_9el = tf.concat([H_8el,h_ones],1)
     H_flat = tf.reshape(H_9el, [-1,9])
-    H_mat = tf.reshape(H_flat,[-1,3,3])   # BATCH_SIZE x 3 x 3
+    H = tf.reshape(H_flat,[-1,3,3])   # BATCH_SIZE x 3 x 3
 
-    return H_mat
+    return H
 
 
 def homographyNet(Img):
