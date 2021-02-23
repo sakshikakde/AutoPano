@@ -19,6 +19,15 @@ from Misc.TFSpatialTransformer import transformer
 # Don't generate pyc codes
 sys.dont_write_bytecode = True
 
+def crop_tf(warped_Ia, corners_a):
+    size = tf.constant([128,128], tf.int32)
+    left_offsets = corners_a[:,:2]
+    center_X = left_offsets[:,0]+64
+    center_Y = left_offsets[:,1]+64
+    centers =  tf.stack([center_Y,center_X],axis=1)
+    warped_Pa = tf.image.extract_glimpse(warped_Ia,size,centers,centered=False,normalized=False)
+    return warped_Pa
+
 def TensorDLT(H4, corners_a , batch_size):
     
     corners_a_tile = tf.expand_dims(corners_a, [2]) # BATCH_SIZE x 8 x 1
@@ -129,13 +138,13 @@ def homographyNet(Img):
 
     return H4
 
-def unsupervised_HomographyNet(Img_batches, corners_a,  Pb, batch_size =64 ) :
+def unsupervised_HomographyNet(patch_batches, corners_a,  patch_b, image_a, batch_size =64 ) :
 
     # note : corners_a is in shape 4,2 [[x1,y1][x2,y2][x3,y3][x4,y4]]
 
-    batch_size,h,w,channels = Img_batches.get_shape().as_list()
+    batch_size,h,w,channels = image_a.get_shape().as_list()
 
-    H4_batches = homographyNet(Img_batches) # H4 = [dx1,dy1,dx2,dy2,dx3,dy3,dx4,dy4] 
+    H4_batches = homographyNet(patch_batches) # H4 = [dx1,dy1,dx2,dy2,dx3,dy3,dx4,dy4] 
 
     corners_a = tf.reshape(corners_a,[batch_size,8]) # convert to 8x1 [x1,y1,x2,y2,x3,y3,x4,y4]
 
@@ -157,12 +166,22 @@ def unsupervised_HomographyNet(Img_batches, corners_a,  Pb, batch_size =64 ) :
     M_inv_batches   = tf.tile(tensor_M_inv, [batch_size,1,1]) #make 'batch_size' number of copies.
     
     H_scaled = tf.matmul(tf.matmul(M_inv_batches, H_batches), M_batches)
+
+#     Pa = tf.slice(patch_batches,[0,0,0,0],[batch_size,128,128,1])
+    image_a = tf.slice(patch_batches,[0,0,0,0],[batch_size,128,128,1])
+    warped_Ia, _ = transformer(image_a, H_scaled, (128,128))        
+   # wrapped_Ia = tf.reshape(wrapped_Ia, [batch_size, h, w, 1])
+
+#     size = tf.constant([128,128], tf.int32)
+#     left_offsets = corners_a[:,:2]
+#     center_X = left_offsets[:,0]+64.0
+#     center_Y = left_offsets[:,1]+64.0
+#     centers =  tf.stack([center_Y,center_X],axis=1)
+#     warped_Pa = tf.image.extract_glimpse(warped_Ia,size,centers,centered=False,normalized=False)
+
+    warped_Pa = warped_Ia
     
-    Pa = tf.slice(Img_batches,[0,0,0,0],[batch_size,w,h,1]) # slice out the first image alone
-#     Pb = tf.slice(Img_batches,[0,0,0,1],[batch_size,w,h,1])
-
-    warped_Pa, _ = transformer(Pa, H_batches, (h,w))
-    # warped_a = tf.reshape(warped_a, [batch_size, h, w, 1])
-
-    return warped_Pa, Pb
+    warped_Pa = tf.reshape(warped_Pa, [batch_size, 128, 128, 1])
+    
+    return warped_Pa, patch_b, H_batches
 

@@ -64,7 +64,7 @@ def FindLatestModel(CheckPointPath):
 def convertToOneHot(vector, n_labels):
     return np.equal.outer(vector, np.arange(n_labels)).astype(np.float)
 
-
+######################### TF functions and variables...
 
 ### Matrices to build the A matrix in Tensor DLT
 

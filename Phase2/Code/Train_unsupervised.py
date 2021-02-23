@@ -150,7 +150,7 @@ def TrainModel(PatchPairsPH, CornerPH, Patch2PH, DirNamesTrain, CornersTrain, Nu
             Writer.add_summary(Summary, Epochs*NumIterationsPerEpoch + PerEpochCounter)
             epoch_loss = epoch_loss/NumIterationsPerEpoch
 
-            print(np.mean(Loss))
+            print("Loss :",np.mean(Loss), "\n")
             L1_loss.append(np.mean(Loss))
           # Save model every epoch
             SaveName = CheckPointPath + str(Epochs) + 'model.ckpt'
