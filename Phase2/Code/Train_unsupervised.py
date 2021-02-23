@@ -41,11 +41,22 @@ if (len(tf.config.experimental.list_physical_devices('GPU')) > 0) :
 else:
        print("################################################ NO GPU FOUND" )
 
+def getPatchIndices(corners_a):
+    patch_indices = []
+    for i in range(corners_a.shape[0]):
+        xmin,ymin = corners_a[i,0,0], corners_a[i,0,1]
+        xmax,ymax = corners_a[i,3,0], corners_a[i,3,1]
+#         print(xmin,ymin,xmax,ymax)
+        X, Y = np.mgrid[xmin:xmax, ymin:ymax]
+        patch_indices.append(np.dstack((Y,X))) 
+    return np.array(patch_indices)
+
 def loadData(folder_name, files_in_dir, points_list, batch_size, shuffle = True):
 
     patch_pairs = []
-    corners = []
+    corners1 = []
     patches2 = []
+    images1 = []
 
 
     if(len(files_in_dir) < batch_size):
@@ -55,36 +66,42 @@ def loadData(folder_name, files_in_dir, points_list, batch_size, shuffle = True)
     for n in range(batch_size):
         index = random.randint(0, len(files_in_dir)-1)  #len(files_in_dir)-1
        
-        image1_name = folder_name + os.sep + "PA/" + files_in_dir[index, 0]
+        patch1_name = folder_name + os.sep + "PA/" + files_in_dir[index, 0]
+        patch1 = cv2.imread(patch1_name, cv2.IMREAD_GRAYSCALE)
+
+        patch2_name = folder_name + os.sep + "PB/" + files_in_dir[index, 0] 
+        patch2 = cv2.imread(patch2_name, cv2.IMREAD_GRAYSCALE)
+
+        image1_name = folder_name + os.sep + "IA/" + files_in_dir[index, 0]
         image1 = cv2.imread(image1_name, cv2.IMREAD_GRAYSCALE)
 
-        image2_name = folder_name + os.sep + "PB/" + files_in_dir[index, 0] 
-        image2 = cv2.imread(image2_name, cv2.IMREAD_GRAYSCALE)
-
-        if(image1 is None) or (image1 is None):
-            print(image1_name, " is empty. Ignoring ...")
+        if(patch1 is None) or (patch2 is None):
+            print(patch1_name, " is empty. Ignoring ...")
             continue
 
-        image1 = np.float32(image1)
-        image2 = np.float32(image2)    
+        patch1 = np.float32(patch1)
+        patch2 = np.float32(patch2) 
+        image1 = np.float32(image1)   
 
         #combine images along depth
-        patch_pair = np.dstack((image1, image1))     
-        point = points_list[index, :, :, 0]
+        patch_pair = np.dstack((patch1, patch2))     
+        corner1 = points_list[index, :, :, 0]
         
         
         patch_pairs.append(patch_pair)
-        corners.append(point)
-        patches2.append(image2.reshape(128,128,1))
+        corners1.append(corner1)
+        patches2.append(patch2.reshape(128, 128, 1))
+
+        images1.append(image1.reshape(image1.shape[0], image1.shape[1], 1))
+
+    patch_indices = getPatchIndices(np.array(corners1))    
+    return np.array(patch_pairs), np.array(corners1), np.array(patches2), np.array(images1), patch_indices
 
 
-    return np.array(patch_pairs), np.array(corners), np.array(patches2)
-
-
-def TrainModel(PatchPairsPH, CornerPH, Patch2PH, DirNamesTrain, CornersTrain, NumTrainSamples, ImageSize, NumEpochs, BatchSize, SaveCheckPoint, CheckPointPath, LatestFile, BasePath, LogsPath):
+def TrainModel(PatchPairsPH, CornerPH, Patch2PH, Image1PH,patchIndicesPH, DirNamesTrain, CornersTrain, NumTrainSamples, ImageSize, NumEpochs, BatchSize, SaveCheckPoint, CheckPointPath, LatestFile, BasePath, LogsPath):
 
     print("Unsupervised")
-    pred_patch2, true_pathc2 = unsupervised_HomographyNet(PatchPairsPH, CornerPH, Patch2PH, BatchSize)
+    pred_patch2, true_pathc2,_ = unsupervised_HomographyNet(PatchPairsPH, CornerPH, Patch2PH, Image1PH,patchIndicesPH, BatchSize)
 
     with tf.name_scope('Loss'):
         loss = tf.reduce_mean(tf.abs(pred_patch2 - true_pathc2))
@@ -133,12 +150,13 @@ def TrainModel(PatchPairsPH, CornerPH, Patch2PH, DirNamesTrain, CornersTrain, Nu
 
             for PerEpochCounter in tqdm(range(NumIterationsPerEpoch)):
 
-                PatchPairsBatch, CornerBatch, patch2Batch = loadData(BasePath, DirNamesTrain, CornersTrain, BatchSize, shuffle = True)
-                FeedDict = {PatchPairsPH: PatchPairsBatch, CornerPH: CornerBatch, Patch2PH: patch2Batch}
+                PatchPairsBatch, Corner1Batch, patch2Batch, Image1Batch, patchIndicesBatch = loadData(BasePath, DirNamesTrain, CornersTrain, BatchSize, shuffle = True)
+                FeedDict = {PatchPairsPH: PatchPairsBatch, CornerPH: Corner1Batch, Patch2PH: patch2Batch, Image1PH: Image1Batch, patchIndicesPH: patchIndicesBatch}
 
                 _, LossThisBatch, Summary = sess.run([Optimizer, loss, MergedSummaryOP1], feed_dict=FeedDict)
                 Loss.append(LossThisBatch)
                 epoch_loss = epoch_loss + LossThisBatch
+                
                 # Save checkpoint every some SaveCheckPoint's iterations
 #                 if PerEpochCounter % SaveCheckPoint == 0:
 #                   # Save the Model learnt in this epoch
@@ -150,7 +168,7 @@ def TrainModel(PatchPairsPH, CornerPH, Patch2PH, DirNamesTrain, CornersTrain, Nu
             Writer.add_summary(Summary, Epochs*NumIterationsPerEpoch + PerEpochCounter)
             epoch_loss = epoch_loss/NumIterationsPerEpoch
 
-            print("Loss :",np.mean(Loss), "\n")
+            print("Printing Epoch:  ",  np.mean(Loss), "\n")
             L1_loss.append(np.mean(Loss))
           # Save model every epoch
             SaveName = CheckPointPath + str(Epochs) + 'model.ckpt'
@@ -162,31 +180,30 @@ def TrainModel(PatchPairsPH, CornerPH, Patch2PH, DirNamesTrain, CornersTrain, Nu
 
         np.savetxt(LogsPath + "LossResults.txt", np.array(L1_loss), delimiter = ",")
 
-
 def main():
     print("######################################## Loaded all functions")
 
-    BasePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic'
-    CheckPointPath = "/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/unsupervised/"
+    BasePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
+    CheckPointPath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Checkpoints/unsupervised/'
 
     files_in_dir, SaveCheckPoint, ImageSize, NumTrainSamples, _ = SetupAll(BasePath, CheckPointPath)
     LogsPath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Logs/'
 
-    print(NumTrainSamples)
+    print("Total number of Training Samples: ", NumTrainSamples)
 
     pointsList = np.load(BasePath+'/pointsList.npy')
 
-    print("######################################## Loaded all data")
     batch_size = 64
     CornerPH = tf.placeholder(tf.float32, shape=(batch_size, 4,2))
     PatchPairsPH = tf.placeholder(tf.float32, shape=(batch_size, 128, 128 ,2))
     Patch2PH = tf.placeholder(tf.float32, shape=(batch_size, 128, 128, 1))
+    Images1PH = tf.placeholder(tf.float32, shape=(batch_size, 240, 320, 1))
+    patchIndicesPH = tf.placeholder(tf.int32, shape=(batch_size, 128, 128 ,2))
 
     NumEpochs = 100
     LatestFile = None
 
-    print("######################################## Begin Training")
-    TrainModel(PatchPairsPH, CornerPH, Patch2PH, files_in_dir, pointsList, NumTrainSamples, ImageSize,
+    TrainModel(PatchPairsPH, CornerPH, Patch2PH, Images1PH, patchIndicesPH, files_in_dir, pointsList, NumTrainSamples, ImageSize,
                NumEpochs, batch_size, SaveCheckPoint, CheckPointPath, LatestFile, BasePath, LogsPath)
     
 

@@ -138,7 +138,7 @@ def homographyNet(Img):
 
     return H4
 
-def unsupervised_HomographyNet(patch_batches, corners_a,  patch_b, image_a, batch_size =64 ) :
+def unsupervised_HomographyNet(patch_batches, corners_a,  patch_b, image_a, patch_indices, batch_size =64 ) :
 
     # note : corners_a is in shape 4,2 [[x1,y1][x2,y2][x3,y3][x4,y4]]
 
@@ -168,18 +168,13 @@ def unsupervised_HomographyNet(patch_batches, corners_a,  patch_b, image_a, batc
     H_scaled = tf.matmul(tf.matmul(M_inv_batches, H_batches), M_batches)
 
 #     Pa = tf.slice(patch_batches,[0,0,0,0],[batch_size,128,128,1])
-    image_a = tf.slice(patch_batches,[0,0,0,0],[batch_size,128,128,1])
-    warped_Ia, _ = transformer(image_a, H_scaled, (128,128))        
-   # wrapped_Ia = tf.reshape(wrapped_Ia, [batch_size, h, w, 1])
 
-#     size = tf.constant([128,128], tf.int32)
-#     left_offsets = corners_a[:,:2]
-#     center_X = left_offsets[:,0]+64.0
-#     center_Y = left_offsets[:,1]+64.0
-#     centers =  tf.stack([center_Y,center_X],axis=1)
-#     warped_Pa = tf.image.extract_glimpse(warped_Ia,size,centers,centered=False,normalized=False)
+    warped_Ia, _ = transformer(image_a, H_scaled, (h,w))     
 
-    warped_Pa = warped_Ia
+    warped_Ia = tf.reshape(warped_Ia, [batch_size, h,w])
+    warped_Pa = tf.gather_nd(warped_Ia, patch_indices, name=None, batch_dims=1)
+
+    warped_Pa = tf.transpose(warped_Pa, perm = [0,2,1])
     
     warped_Pa = tf.reshape(warped_Pa, [batch_size, 128, 128, 1])
     
