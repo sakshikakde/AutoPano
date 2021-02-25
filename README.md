@@ -4,7 +4,8 @@
 1) Change the directory      
 Eg. cd /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/Code
 
-3) Run the .py script       
+3) Run the .py script
+
 python3 Wrapper.py --BasePath /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/ --ImagesFolder Data/Train/Set3 --SaveFolderName Code/Results/Set3 
 
 ## Parameters 
