@@ -77,12 +77,12 @@ def detectCorners(imgs, choice):
 
         if(choice == 1):
             print("using Harris corner detection method.")
-            corner_strength = cv2.cornerHarris(gray_image,2,3,0.04)
+            corner_strength = cv2.cornerHarris(gray_image,2,3,0.001)
             corner_strength[corner_strength<0.01*corner_strength.max()] = 0
-            detected_corner = np.where(corner_strength>0.001*corner_strength.max())
+            detected_corner = np.where(corner_strength>0.0001*corner_strength.max())
             detected_corners.append(detected_corner)
             cmaps.append(corner_strength)
-            image[corner_strength > 0.001*corner_strength.max()]=[0,0,255]
+            image[corner_strength > 0.0001*corner_strength.max()]=[0,0,255]
             corner_images.append(image)
         else:
             print("using Shi-Tomashi corner detection method.")
@@ -241,7 +241,7 @@ def filterOutliers(matched_pairs, outliers, accuracy, thresh):
     p = accuracy
     iterations = np.log(1 - p) / np.log(1 - np.power((1 - e), s))
     iterations = np.int(iterations)
-    iterations = 4000
+    iterations = 5000
 
     filtered_pair_indices = []
 
@@ -260,8 +260,8 @@ def filterOutliers(matched_pairs, outliers, accuracy, thresh):
         set1_dash = np.vstack((set1[:,0], set1[:,1], np.ones([1, n_rows])))
         set1_transformed_dash = np.dot(H, set1_dash)
         
-        t1 = set1_transformed_dash[0,:]/set1_transformed_dash[2,:]
-        t2 = set1_transformed_dash[1,:]/set1_transformed_dash[2,:]
+        t1 = set1_transformed_dash[0,:]/(set1_transformed_dash[2,:] + 1e-10)
+        t2 = set1_transformed_dash[1,:]/(set1_transformed_dash[2,:] + 1e-10)
 
         set1_transformed = np.array([t1, t2]).T
         #print(set1_transformed.shape)
@@ -293,13 +293,8 @@ def filterOutliers(matched_pairs, outliers, accuracy, thresh):
 
     filter_matched_pairs = filter_matched_pairs.astype(int)
 
-    H_inbuit, _ = cv2.findHomography(set1, set2)
-    print("inbuilt = ", H_inbuit)
-    print("Computed = ", H_best)
-
     return H_best, filter_matched_pairs
 
-    
 
 
 # %%
@@ -315,15 +310,15 @@ def calculateError(set1, set2):
 
 
 # %%
-def AdaptiveNonMaximalSuppression(imgs, C_maps, N_best):
+def AdaptiveNonMaximalSuppression(images, C_maps, N_best):
     
-    images = imgs.copy()
+    imgs = images.copy()
     anms_img = []
     anms_corners = []
-    for i,image in enumerate(images):
+    for i,img in enumerate(imgs):
 
         cmap = C_maps[i]
-        local_maximas = peak_local_max(cmap, min_distance=10)
+        local_maximas = peak_local_max(cmap, min_distance=15)
         n_strong = local_maximas.shape[0]
         
         r = [np.Infinity for i in range(n_strong)]
@@ -352,14 +347,19 @@ def AdaptiveNonMaximalSuppression(imgs, C_maps, N_best):
         x_best=np.zeros((N_best,1))
         y_best=np.zeros((N_best,1))
 
+
+        print(x.shape, y.shape)
+        if x.shape[0] < N_best:
+            N_best = x.shape[0]
+
         for i in range(N_best):
-            x_best[i] = np.int0(x[index[i]])
-            y_best[i] = np.int0(y[index[i]]) 
-            cv2.circle(image, (y_best[i], x_best[i]), 3, (0, 255, 0), -1)
+            x_best[i] = np.int0(y[index[i]])
+            y_best[i] = np.int0(x[index[i]]) 
+            cv2.circle(img, (x_best[i], y_best[i]), 5, (0, 255, 0), -1)
 
         anms_corner = np.int0(np.concatenate((x_best, y_best), axis = 1))
         anms_corners.append(anms_corner)
-        anms_img.append(image)
+        anms_img.append(img)
     return anms_corners, anms_img
 
 
@@ -405,8 +405,19 @@ def stitchImagePairs(img0, img1, H):
     H_translate = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]]) # translate
 
     image0_transformed_and_stitched = cv2.warpPerspective(image0, np.dot(H_translate, H), (x_max-x_min, y_max-y_min))
-    image0_transformed_and_stitched[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
-    return image0_transformed_and_stitched
+
+    #image0_transformed_and_stitched[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
+
+    images_stitched = image0_transformed_and_stitched.copy()
+    images_stitched[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
+
+    indices = np.where(image1 == [0,0,0])
+    y = indices[0] + -y_min 
+    x = indices[1] + -x_min 
+
+    images_stitched[y,x] = image0_transformed_and_stitched[y,x]
+    
+    return images_stitched
 
 
 # %%
@@ -429,12 +440,22 @@ def TransformImage(image, H):
     H_translate = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]]) # translate
 
     image0_transformed = cv2.warpPerspective(image0, np.dot(H_translate, H), (x_max-x_min, y_max-y_min))
-    image0_transformed[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
-    return image0_transformed
+
+    images_stitched = image0_transformed
+    images_stitched[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
+
+    for y in range(0, h1):
+        for x in range(0, w1):
+            if image1[y,x,:] == [0,0,0]:
+                images_stitched[-y_min + y, -x_min + x] = image0_transformed[-y_min + y, -x_min + x]
 
 
-# %%
-def cropImage(image):
+    # image0_transformed[-y_min:-y_min+h1, -x_min: -x_min+w1] = image1
+    
+    return images_stitched
+
+
+def cropImagePoly(image):
     
     img = image.copy()
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -450,6 +471,22 @@ def cropImage(image):
         crop = img[y:y+h,x:x+w]
     return crop
 
+def cropImageRect(image):
+    
+    img = image.copy()
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+    _,thresh = cv2.threshold(gray,5,255,cv2.THRESH_BINARY)
+    kernel = np.ones((5,5), np.uint8)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    x,y,w,h = cv2.boundingRect(contours[len(contours)-1])
+    crop = img[y:y+h,x:x+w]
+
+    return crop
+
 
 # %%
 def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
@@ -457,8 +494,9 @@ def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
     image_array = img_array.copy()
     N = len(image_array)
     image0 = image_array[0]
+    j = 0
     for i in range(1, N):
-
+        j = j + 1
         print("processing image ", i)
         image1 = image_array[i] 
 
@@ -466,16 +504,16 @@ def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
         
         detected_corners, cmaps, corner_images = detectCorners(image_pair, choice)
         if show_steps:
-            displayImages(corner_images, save_folder_name + "/corners" + str(n) + ".png")
+            displayImages(corner_images, save_folder_name + "/corners" + str(n) + str(j) + ".png")
         """
         Perform ANMS: Adaptive Non-Maximal Suppression
         Save ANMS output as anms.png
         """
         if (choice == 1):
             print("Applying ALMS.")
-            detected_corners, anms_image = AdaptiveNonMaximalSuppression(image_pair, cmaps, 500)
+            detected_corners, anms_image = AdaptiveNonMaximalSuppression(corner_images, cmaps, 300)
             if show_steps:
-                displayImages(anms_image, save_folder_name + "/anms_output" + str(n) + ".png")
+                displayImages(anms_image, save_folder_name + "/anms_output" + str(n) + str(j) + ".png")
         else:
             print("goodFeaturesToTrack is already using ALMS.") #review
 
@@ -484,26 +522,45 @@ def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
                 
         matched_pairs = getPairs(image0, image1, detected_corners0, detected_corners1, patch_size = 40, alpha = 0.9 )
         if show_steps:
-            showMatches(image0, image1, matched_pairs, save_folder_name + "/matched_pairs" + str(n) + ".png")
+            showMatches(image0, image1, matched_pairs, save_folder_name + "/matched_pairs" + str(n) + str(j) + ".png")
         """
         Refine: RANSAC, Estimate Homography
         """
-        H,filtered_matched_pairs = filterOutliers(matched_pairs, 20, 0.9, 15)
+        H,filtered_matched_pairs = filterOutliers(matched_pairs, 20, 0.9, 5)
         if show_steps:
-            showMatches(image0, image1, filtered_matched_pairs, save_folder_name + "/filtered_matched_pairs" + str(n) + ".png")
+            showMatches(image0, image1, filtered_matched_pairs, save_folder_name + "/filtered_matched_pairs" + str(n) + str(j) + ".png")
+
+
+        unique, counts = np.unique(filtered_matched_pairs[:,1,:], return_counts=True, axis = 0)
+        unique_count = unique.shape[0]
+        max_count = np.max(counts)
+
+        stitching = True
+        # print(unique_count, max_count)
+        # if(unique_count < 7 and max_count > 8):
+        #     print("Cannot match image")
+        #     stitching = False
         """
         Image Warping + Blending
         Save Panorama output as mypano.png
         """
-        stitched_image = stitchImagePairs(image0, image1, H)
-        stitched_image = cropImage(stitched_image)
-        if show_steps:
-            cv2.imshow(save_folder_name + "/pano" + str(n) + ".png", stitched_image)
-            cv2.waitKey() 
-            cv2.destroyAllWindows()
+        if(stitching):
+            stitched_image = stitchImagePairs(image0, image1, H)
+            stitched_image = cropImageRect(stitched_image)
+            if show_steps:
+                cv2.imshow(save_folder_name + "/pano" + str(n) + str(j) + ".png", stitched_image)
+                cv2.waitKey() 
+                cv2.destroyAllWindows()
 
-        cv2.imwrite(save_folder_name + "/pano" + str(n) + ".png", stitched_image)
-        image0 = stitched_image
+            cv2.imwrite(save_folder_name + "/pano" + str(n) + str(j) + ".png", stitched_image)
+            image0 = stitched_image
+        else:
+            if show_steps:
+                cv2.imshow(save_folder_name + "/pano" + str(n) + str(j) + ".png", image0)
+                cv2.waitKey() 
+                cv2.destroyAllWindows()
+
+            cv2.imwrite(save_folder_name + "/pano" + str(n) + str(j) + ".png", image0)
 
     return image0
 
@@ -513,15 +570,19 @@ def autoPano():
 
     Parser = argparse.ArgumentParser()
     Parser.add_argument('--BasePath', default='/home/sakshi/courses/CMSC733/sakshi_p1/Phase1/', help='base path')
-    Parser.add_argument('--ImagesFolder', default='Data/Train/Set1', help='folder for images')
-    Parser.add_argument('--SaveFolderName', default='Code/Results/Set1', help='Folder to save results')
+    Parser.add_argument('--ImagesFolder', default='Data/Test/TestSet2', help='folder for images')
+    Parser.add_argument('--SaveFolderName', default='Code/Results/TestSet2', help='Folder to save results')
     Parser.add_argument('--ShowImages', type = bool, default= False, help='show images or not')
+    Parser.add_argument('--GoSequentially', type = bool, default= False, help='show images or not')
+    
+
 
     Args = Parser.parse_args()
     BasePath = Args.BasePath
     ImagesFolder = Args.ImagesFolder
     SaveFolderName = Args.SaveFolderName
     ShowImages = Args.ShowImages
+    GoSequentially = Args.GoSequentially
     #ShowImages = False
     print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<", ShowImages)
     
@@ -536,6 +597,8 @@ def autoPano():
     if ShowImages:
         displayImages(images, BasePath + SaveFolderName + "/input.png")
 
+    N = len(images)
+
     N_images = len(images)
 
     choice = 2
@@ -544,42 +607,62 @@ def autoPano():
 
     N_first_half = round(N_images/2)
     N_second_half = N_images - N_first_half
+    print("Images found: ", N_images)
     print(N_first_half, " and ", N_second_half)
 
-    N_first_half_images = []
-    N_second_half_images = []
+    if not GoSequentially:
+        while N_images is not 2:
+            print("N = ", N_images, " N_half = ", N_first_half)
+            merged_images = []
+            for n in range(0, N_first_half, 2):
+                if (n+1) <= N_first_half:
+                    img_array = images[n:n+2]
+                    print("combining: ", n, n+1)
+                    I = joinImages(img_array, choice, BasePath + SaveFolderName, n, ShowImages)
+                    merged_images.append(I)
+                else:
+                    print("adding: ", n)
+                    merged_images.append(images[n])
 
-    while N_images is not 2:
-        print("N = ", N_images, " N_half = ", N_first_half)
-        merged_images = []
-        for n in range(0, N_first_half, 2):
-            if (n+1) <= N_first_half:
-                img_array = images[n:n+2]
-                print("combining: ", n, n+1)
-                I = joinImages(img_array, choice, BasePath + SaveFolderName, n, ShowImages)
-                merged_images.append(I)
-            else:
-                print("adding: ", n)
-                merged_images.append(images[n])
+            for n in range(N_first_half, N_images, 2):
+                if (n+1) < N_images:
+                    img_array = images[n:n+2]
+                    img_array.reverse()
+                    print("combining: ", n+1, n)
+                    I = joinImages(img_array, choice, BasePath + SaveFolderName, n, ShowImages)
+                    merged_images.append(I)
+                else:
+                    print("adding: ", n)
+                    merged_images.append(images[n])
+        
+            images = merged_images
+            N_images = len(images)
+            N_first_half = round(N_images/2)
+            N_second_half = N_images - N_first_half
+        
+        print("final merging")
+        if N % 2 != 0:
+            print("reversing")
+            merged_images.reverse()
+        final = joinImages(merged_images, choice, BasePath + SaveFolderName, 100, ShowImages)
+    else:
+        Image0 = images[0]
+        for n in range(N_images - 1):
+            img_array = [Image0, images[n+1]]
+            Image0 = joinImages(img_array, choice, BasePath + SaveFolderName, n, ShowImages)
 
-        for n in range(N_first_half, N_images, 2):
-            if (n+1) <= N_images:
-                img_array = images[n:n+2]
-                img_array.reverse()
-                print("combining: ", n+1, n)
-                I = joinImages(img_array, choice, BasePath + SaveFolderName, n, ShowImages)
-                merged_images.append(I)
-            else:
-                print("adding: ", n, n)
-                merged_images.append(images[n])
-    
-        images = merged_images
-        N_images = len(images)
-        N_first_half = round(N_images/2)
-        N_second_half = N_images - N_first_half
+        if ShowImages:
+            cv2.imshow(BasePath + SaveFolderName + "/pano" + str(n) + ".png", Image0)
+            cv2.waitKey() 
+            cv2.destroyAllWindows()
 
-    print("final merging")
-    final = joinImages(merged_images, choice, BasePath + SaveFolderName, 100, ShowImages)
+        cv2.imwrite(BasePath + SaveFolderName + "/pano" + str(n) + ".png", Image0)
+
+ 
+    # print("final merging")
+    # if N_images % 2 == 1:
+    #     merged_images.reverse()
+    # final = joinImages(merged_images, choice, BasePath + SaveFolderName, 100, ShowImages)
 
 
 # %%
