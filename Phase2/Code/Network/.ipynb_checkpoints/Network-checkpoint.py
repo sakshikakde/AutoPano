@@ -15,73 +15,174 @@ import sys
 import numpy as np
 from Misc.MiscUtils import *
 from Misc.TFSpatialTransformer import transformer
+from keras import backend as K
 
+from keras import optimizers
+from keras.callbacks import ModelCheckpoint
+
+from keras.utils import Sequence
+from keras.initializers import VarianceScaling
+from keras.models import Sequential
+from keras.layers import  Activation, Dense, Dropout, Conv2D, MaxPooling2D, Flatten, BatchNormalization, InputLayer
 # Don't generate pyc codes
 sys.dont_write_bytecode = True
 
-def crop_tf(warped_Ia, corners_a):
-    size = tf.constant([128,128], tf.int32)
-    left_offsets = corners_a[:,:2]
-    center_X = left_offsets[:,0]+64
-    center_Y = left_offsets[:,1]+64
-    centers =  tf.stack([center_Y,center_X],axis=1)
-    warped_Pa = tf.image.extract_glimpse(warped_Ia,size,centers,centered=False,normalized=False)
-    return warped_Pa
+
+###################################################### Keras Model for Supervised model
+
+def supervised_HomographyNet():
+
+#     hidden_layer_size, num_classes = 1000, 8
+    input_shape = (128, 128, 2)
+    kernel_size = 3
+    pool_size = 2
+    filters = 64
+    dropout = 0.5
+    
+    model = Sequential()
+    model.add(InputLayer(input_shape))
+    ## conv2d 128
+    model.add(Conv2D(filters=filters,kernel_size = kernel_size, activation ='relu', padding ='same'))
+    model.add(BatchNormalization())
+    
+    ## conv2d 128
+    model.add(Conv2D(filters = filters,kernel_size = kernel_size, activation = 'relu', padding = 'same'))
+    model.add(BatchNormalization())
+    
+    model.add(MaxPooling2D(pool_size))
+    
+    ## conv2d 64
+    model.add(Conv2D(filters=filters,kernel_size=kernel_size, activation = 'relu', padding = 'same'))
+    model.add(BatchNormalization())
+    ## conv2d 64
+    model.add(Conv2D(filters=filters, kernel_size=kernel_size, activation='relu', padding='same'))
+    model.add(BatchNormalization())
+    
+    model.add(MaxPooling2D(pool_size))
+    
+    ## conv2d 32 2x Filters
+    model.add(Conv2D(filters=filters*2,kernel_size=kernel_size, activation='relu', padding='same',))
+    model.add(BatchNormalization())
+    ## conv2d 32 2x Filters
+    model.add(Conv2D(filters=filters*2,kernel_size=kernel_size, activation='relu', padding='same',))
+    model.add(BatchNormalization())
+    
+    model.add(MaxPooling2D(pool_size))
+    
+    ## conv2d 16 2x Filters
+    model.add(Conv2D(filters=filters*2, kernel_size=kernel_size, activation='relu', padding='same',))
+    model.add(BatchNormalization())
+    ## conv2d 16 2x Filters
+    model.add(Conv2D(filters=filters*2, kernel_size=kernel_size, activation='relu', padding='same',))
+    model.add(BatchNormalization())
+    
+    model.add(Flatten())
+    model.add(Dropout(dropout))
+    model.add(Dense(1024, activation='relu'))
+    model.add(Dropout(dropout))
+    #for regression model
+    model.add(Dense(8))
+    return model
+
+#Loss Function using SMSE
+def L2_loss(y_true, y_pred):
+    return K.sqrt(K.sum(K.square(y_pred - y_true), axis=-1, keepdims=True))
+
+#################################################################################################################################################### Unsupervised homographyNet#####################
+
+# in memory of 02/22/2021
+# def crop_tf(warped_Ia, corners_a):
+#     size = tf.constant([128,128], tf.int32)
+#     left_offsets = corners_a[:,:2]
+#     center_X = left_offsets[:,0]+64
+#     center_Y = left_offsets[:,1]+64
+#     centers =  tf.stack([center_Y,center_X],axis=1)
+#     warped_Pa = tf.image.extract_glimpse(warped_Ia,size,centers,centered=False,normalized=False)
+#     return warped_Pa
 
 def TensorDLT(H4, corners_a , batch_size):
     
-    corners_a_tile = tf.expand_dims(corners_a, [2]) # BATCH_SIZE x 8 x 1
+    corners_a_tile = tf.expand_dims(corners_a, [2]) # batch_size x 8 x 1
     
     # Solve for H using DLT
-    pred_h4p_tile = tf.expand_dims(H4, [2]) # BATCH_SIZE x 8 x 1
+    pred_h4p_tile = tf.expand_dims(H4, [2]) # batch_size x 8 x 1
     # 4 points on the second image
     pred_corners_b_tile = tf.add(pred_h4p_tile, corners_a_tile)
+    
+    # obtain 8 auxiliary tensors -> expand dimensions by 1 at first,-> create batch_size number of copies
+    tensor_aux_M1 = tf.constant(Aux_M1,tf.float32)
+    tensor_aux_M1 =  tf.expand_dims(tensor_aux_M1 ,[0])
+    M1_tile = tf.tile(tensor_aux_M1,[batch_size,1,1])
 
-
-    # Auxiliary tensors used to create Ax = b equation
-    M1_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M1,tf.float32),[0]),[batch_size,1,1])
-    M2_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M2,tf.float32),[0]),[batch_size,1,1])
-    M3_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M3,tf.float32),[0]),[batch_size,1,1])
-    M4_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M4,tf.float32),[0]),[batch_size,1,1])
-    M5_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M5,tf.float32),[0]),[batch_size,1,1])
-    M6_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M6,tf.float32),[0]),[batch_size,1,1])
-    M71_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M71,tf.float32),[0]),[batch_size,1,1])
-    M72_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M72,tf.float32),[0]),[batch_size,1,1])
-    M8_tile = tf.tile(tf.expand_dims(tf.constant(Aux_M8,tf.float32),[0]),[batch_size,1,1])
-    Mb_tile = tf.tile(tf.expand_dims(tf.constant(Aux_Mb,tf.float32),[0]),[batch_size,1,1])
-
+    tensor_aux_M2 = tf.constant(Aux_M2,tf.float32)
+    tensor_aux_M2 = tf.expand_dims(tensor_aux_M2,[0])
+    M2_tile = tf.tile(tensor_aux_M2,[batch_size,1,1])
+    
+    tensor_aux_M3 = tf.constant(Aux_M3,tf.float32)
+    tensor_aux_M3 = tf.expand_dims(tensor_aux_M3,[0])
+    M3_tile = tf.tile(tensor_aux_M3,[batch_size,1,1])
+    
+    tensor_aux_M4 = tf.constant(Aux_M4,tf.float32)
+    tensor_aux_M4 = tf.expand_dims(tensor_aux_M4,[0])
+    M4_tile = tf.tile(tensor_aux_M4,[batch_size,1,1])
+                      
+    tensor_aux_M5 = tf.constant(Aux_M5,tf.float32)
+    tensor_aux_M5 = tf.expand_dims(tensor_aux_M5,[0])
+    M5_tile = tf.tile(tensor_aux_M5,[batch_size,1,1])
+                      
+    tensor_aux_M6 = tf.constant(Aux_M6,tf.float32)
+    tensor_aux_M6 = tf.expand_dims(tensor_aux_M6,[0])
+    M6_tile = tf.tile(tensor_aux_M6,[batch_size,1,1])
+    
+    tensor_aux_M71 = tf.constant(Aux_M71,tf.float32)
+    tensor_aux_M71 = tf.expand_dims(tensor_aux_M71,[0])
+    M71_tile = tf.tile(tensor_aux_M71,[batch_size,1,1])
+                      
+    tensor_aux_M72 = tf.constant(Aux_M72,tf.float32)
+    tensor_aux_M72 = tf.expand_dims(tensor_aux_M72,[0])
+    M72_tile = tf.tile(tensor_aux_M72,[batch_size,1,1])
+                      
+    tensor_aux_M8 = tf.constant(Aux_M8,tf.float32)
+    tensor_aux_M8 = tf.expand_dims(tensor_aux_M8,[0])
+    M8_tile = tf.tile(tensor_aux_M8,[batch_size,1,1])
+                      
+    tensor_aux_Mb = tf.constant(Aux_Mb,tf.float32)
+    tensor_aux_Mb = tf.expand_dims(tensor_aux_Mb,[0])
+    Mb_tile = tf.tile(tensor_aux_Mb,[batch_size,1,1])
+    
     # Form the equations Ax = b to compute H
-    # Form A matrix
-    A1 = tf.matmul(M1_tile, corners_a_tile) # Column 1
-    A2 = tf.matmul(M2_tile, corners_a_tile) # Column 2
-    A3 = M3_tile                   # Column 3
-    A4 = tf.matmul(M4_tile, corners_a_tile) # Column 4
-    A5 = tf.matmul(M5_tile, corners_a_tile) # Column 5
-    A6 = M6_tile                   # Column 6
-    A7 = tf.matmul(M71_tile, pred_corners_b_tile) *  tf.matmul(M72_tile, corners_a_tile)# Column 7
-    A8 = tf.matmul(M71_tile, pred_corners_b_tile) *  tf.matmul(M8_tile, corners_a_tile)# Column 8
+        # Build A matrix
+    A1 = tf.matmul(M1_tile, corners_a_tile)                                              # Column 1
+    A2 = tf.matmul(M2_tile, corners_a_tile)                                              # Column 2
+    A3 = M3_tile                                                                         # Column 3
+    A4 = tf.matmul(M4_tile, corners_a_tile)                                              # Column 4
+    A5 = tf.matmul(M5_tile, corners_a_tile)                                              # Column 5
+    A6 = M6_tile                                                                         # Column 6
+    A7 = tf.matmul(M71_tile, pred_corners_b_tile) *  tf.matmul(M72_tile, corners_a_tile) # Column 7
+    A8 = tf.matmul(M71_tile, pred_corners_b_tile) *  tf.matmul(M8_tile, corners_a_tile)  # Column 8
+                      
+                      
+    # reshape A1-A8 in as 8x1 and stack them column wise                    
+    A = tf.stack([tf.reshape(A1,[-1,8]),tf.reshape(A2,[-1,8]), tf.reshape(A3,[-1,8]),tf.reshape(A4,[-1,8]),
+                 tf.reshape(A5,[-1,8]),tf.reshape(A6,[-1,8]), tf.reshape(A7,[-1,8]),tf.reshape(A8,[-1,8])],axis=1)
+    A = tf.transpose(A, perm=[0,2,1]) 
 
-    A_mat = tf.transpose(tf.stack([tf.reshape(A1,[-1,8]),tf.reshape(A2,[-1,8]),\
-                                   tf.reshape(A3,[-1,8]),tf.reshape(A4,[-1,8]),\
-                                   tf.reshape(A5,[-1,8]),tf.reshape(A6,[-1,8]),\
-                                   tf.reshape(A7,[-1,8]),tf.reshape(A8,[-1,8])],axis=1), perm=[0,2,1]) # BATCH_SIZE x 8 (A_i) x 8
+    # Build b matrix
+    b = tf.matmul(Mb_tile, pred_corners_b_tile)
 
+#     print('shape of A:', A.get_shape().as_list())
+#     print('shape of B:', b.get_shape().as_list())
 
-    print('--Shape of A_mat:', A_mat.get_shape().as_list())
-    # Form b matrix
-    b_mat = tf.matmul(Mb_tile, pred_corners_b_tile)
-    print('--shape of b:', b_mat.get_shape().as_list())
+    # Solve the Ax = b to get h11 - h32 as H8 matrix
+    H_8 = tf.matrix_solve(A , b)  # batch_size x 8. -  has values from H11-H32
+#     print('shape of H_8', H_8)
 
-    # Solve the Ax = b
-    H_8el = tf.matrix_solve(A_mat , b_mat)  # BATCH_SIZE x 8.
-    print('--shape of H_8el', H_8el)
-
-
-    # Add ones to the last cols to reconstruct H for computing reprojection error
-    h_ones = tf.ones([batch_size, 1, 1])
-    H_9el = tf.concat([H_8el,h_ones],1)
-    H_flat = tf.reshape(H_9el, [-1,9])
-    H = tf.reshape(H_flat,[-1,3,3])   # BATCH_SIZE x 3 x 3
+    # Add h33 = ones to the last cols to complete H matrix
+    
+    h_33 = tf.ones([batch_size, 1, 1]) 
+    H_9 = tf.concat([H_8,h_33],1) 
+    H_flat = tf.reshape(H_9, [-1,9])
+    H = tf.reshape(H_flat,[-1,3,3])   # batch_size x 3 x 3
 
     return H
 

@@ -9,7 +9,22 @@ import pandas as pd
 import os
 
 
-def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 30):
+def getPatches(image, patch_size = 128, pixel_shift_limit = 32, border_margin = 42):
+    
+    """
+    Inputs: 
+    image: image from MS Coco dataset,
+    patch_size = size of the patches to be cropped randomly, default: 128
+    pixel_shift_limit = radius of pixel neigbourhood for which the corners can be chosen to obtain patch B
+    border_margin = margin from the boundaries of image to crop the patch. 
+                    (Choose border_margin > pixel_shift_limit)
+    
+    Returns:
+    Patch_a : randomly cropped patch from input image
+    Patch_b : patchB cropped from Image B,
+    H4: The H4 point homography between Image A and Image B
+    pts1,pts2: corner coordinates of Patch_a and Patch_b with respect to Image A and Image B
+    """
     
     h,w = image.shape[:2]
     minSize = patch_size+ 2*border_margin+1 # minimuum size of the image to be maintained.
@@ -50,27 +65,50 @@ def getPatches(image, patch_size = 128, pixel_shift_limit = 20, border_margin = 
 
 
 # ########################################### SPECIFY THE DATA PATHs ###########################################
-
 def main():
-    attempts = ['a','b','c','d','e']
-    is_Train_options = [True,False]
+    """
+    Generates data for the supervised and unsupervised homography networks.
+    
+    attempts: list with len(attempts) number of random crops inside a given image.
+    options: list to generate Train/Validation/Test data 
+    
+    Generated Data:
+    PA: all patches Pa from image A
+    PB: all patches Pb from image B
+    H4.csv: H4 homography matrices shaped 1x8 ordered[dx1,dx2,dx3,dx4,dy1,dy2,dy3,dy4]
+    pointsList.npy: numpy array of corner coordinates of Pa and Pb with respect to images A and B. shaped (numSamples,4,2,2) 
+    ImageFileNames.csv: meta file that contains image file names ordered with corresponding H4 and pointsList files.
+    
+    """
+    
+    attempts = ['a','b','c','d','e'] # 5 alphabets, for 5 random patches per image
+    options = ['Train','Val', 'Test']
 
-    for s in is_Train_options:
+    for option in options:
         noneCounter=0
-        is_Train = s
 
-        if is_Train  == True:
+        if option == 'Train':
             print("Generating Train data ......")
-            path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train/'
-            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Train_synthetic/'
-            imCount = 5001
+            path = '../Data/Train/'
+            savePath = '../Data/Train_synthetic/'
+            imCount = 5001 # Train folder had 5000 images
+            
+        elif option == 'Val':
+            print("Generating Validation data ......")
+            path = '../Data/Val/'
+            savePath = '../Data/Val_synthetic/'
+            imCount = 1000 # Val folder had 999 images
+
         else:
             print("Generating Test data ......")
-            path = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val/'   
-            # savePath = '../Data/'
-            savePath = '/home/gokul/CMSC733/hgokul_p1/Phase2/Data/Val_synthetic/'
-            imCount = 1000
-
+            path = '../Data/Phase2/'    # the released test folder with 1000 images was named as Phase2
+            savePath = '../Data/Test_synthetic/'
+            imCount = 1001 #Val folder had 1000 images
+            
+        if(not (os.path.isdir(savePath))):
+            print(savePath, "  was not present, creating the folder...")
+            os.makedirs(savePath)
+        
         H4_list = []
         image_name_list = [] 
         pointsList = []
@@ -84,20 +122,27 @@ def main():
                 imageA = cv2.imread(path + str(i) + '.jpg')
                 imageA = cv2.resize(imageA, (320,240), interpolation = cv2.INTER_AREA)
 
-                Patch_a, Patch_b, H4, imageB, points = getPatches(imageA, patch_size = 128, pixel_shift_limit = 32, border_margin = 42) # make sure border_margin > pixelshift_limit
+                Patch_a, Patch_b, H4, _, points = getPatches(imageA, patch_size = 128, pixel_shift_limit = 32, border_margin = 42) 
+                
                 if ((Patch_a is None)&(Patch_b is None)&(H4 is None)):
-                    print("encountered None return")
+                    print("encountered None return.. ignoring Image..")
                     noneCounter+=1
-                else: 
+                else:
+                    if(not (os.path.isdir(savePath +'PA/'))):
+                        print(" Subdirectories inside  ", savePath, " were not present.. creating the folders...")
+                        os.makedirs(savePath +'PA/')
+                        os.makedirs(savePath +'PB/')
+                        os.makedirs(savePath +'IA/')
+ 
                     pathA = savePath +'PA/' + str(i) +a+ '.jpg'
                     pathB = savePath +'PB/' + str(i) +a+ '.jpg'
                     impathA = savePath +'IA/' + str(i) +a+ '.jpg'
-                    impathB = savePath +'IB/' + str(i) +a+ '.jpg'
+#                     impathB = savePath +'IB/' + str(i) +a+ '.jpg'
 
                     cv2.imwrite(pathA, Patch_a)
                     cv2.imwrite(pathB, Patch_b)
                     cv2.imwrite(impathA, imageA)
-                    cv2.imwrite(impathB, imageB)
+#                     cv2.imwrite(impathB, imageB)
 
                     H4_list.append(np.hstack((H4[:,0] , H4[:,1])))
                     pointsList.append(points)
