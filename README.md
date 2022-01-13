@@ -48,7 +48,7 @@ python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoi
 python3 Test.py --ModelPath ../Checkpoints/supervised/supervisedModel.h5 --BasePath ../Data/Test_synthetic --SavePath ./Results/ --ModelType sup 
 ```
 
-## Supervised
+## Unsupervised
 ### Training
 ```
 python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --ModelType Unsup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/unsupervised/
