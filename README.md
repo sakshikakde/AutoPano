@@ -38,6 +38,7 @@ We implemented two deep learning approaches to estimate the homography between t
     python3 DataGenerator.py
 ```
 ## Supervised
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/sup.png)
 ### Training
 ```
 python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/supervised/ --ModelType sup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/supervised/
@@ -49,6 +50,7 @@ python3 Test.py --ModelPath ../Checkpoints/supervised/supervisedModel.h5 --BaseP
 ```
 
 ## Unsupervised
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/unsup.png)
 ### Training
 ```
 python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --ModelType Unsup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/unsupervised/
@@ -57,3 +59,6 @@ python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoi
 ```
 python3 Test.py --ModelPath ../Checkpoints/unsupervised/0model.ckpt --BasePath ../Data/Test_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --SavePath ./Results/ --ModelType Unsup
 ```
+
+## Results
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/dl_results.png)
