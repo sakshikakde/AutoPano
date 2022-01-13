@@ -1,24 +1,17 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
-# %%
-#!/usr/bin/evn python
-
 """
-CMSC733 Spring 2019: Classical and Deep Learning Approaches for
+CMSC733 Spring 2020: Classical and Deep Learning Approaches for
 Geometric Computer Vision
 Project1: MyAutoPano: Phase 1 Starter Code
 
 Author(s): 
-Chahat Deep Singh (chahat@terpmail.umd.edu) 
-PhD Student in Computer Science,
+Sakshi Kakde (sakshi@umd.edu) 
+M.Eng. Robotics,
 University of Maryland, College Park
 
-Nitin J. Sanket (nitinsan@terpmail.umd.edu)
-PhD Candidate in Computer Science,
+Gokul Hari (hgokul@umd.edu) 
+M.Eng. Robotics,
 University of Maryland, College Park
 """
-
-#Code starts here:
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
@@ -27,7 +20,6 @@ import argparse
 import os
 
 
-# %%
 def readImageSet(folder_name):
     print("Reading images from ", folder_name)
     images = []
@@ -45,7 +37,6 @@ def readImageSet(folder_name):
     return images
 
 
-# %%
 def displayImages(img_array, file_name):
     
     image_array = img_array.copy()
@@ -62,7 +53,6 @@ def displayImages(img_array, file_name):
     cv2.imwrite(file_name, concat)
 
 
-# %%
 def detectCorners(imgs, choice):
     images = imgs.copy()
     print("detecting corners ...")
@@ -101,7 +91,6 @@ def detectCorners(imgs, choice):
     return detected_corners, cmaps, corner_images
 
 
-# %%
 def getFeatureDescriptor(gray_img,x,y, patch_size=40):
     gray_image = gray_img
     patch = gray_image[x-patch_size//2:x+patch_size//2, y-patch_size//2:y+patch_size//2] 
@@ -114,7 +103,6 @@ def getFeatureDescriptor(gray_img,x,y, patch_size=40):
     return feature
 
 
-# %%
 def getPairs(img_1, img_2, all_corners_1, all_corners_2, patch_size = 40, alpha = 0.8):
 
     image_1 = img_1.copy()
@@ -165,7 +153,6 @@ def getPairs(img_1, img_2, all_corners_1, all_corners_2, patch_size = 40, alpha 
     return matched_pairs
 
 
-# %%
 def makeImageSizeSame(imgs):
     images = imgs.copy()
     sizes = []
@@ -186,7 +173,6 @@ def makeImageSizeSame(imgs):
     return images_resized
 
 
-# %%
 def showMatches(img_1, img_2, matched_pairs, file_name):
 
     image_1 = img_1.copy()
@@ -209,7 +195,6 @@ def showMatches(img_1, img_2, matched_pairs, file_name):
     cv2.imwrite(file_name, concat)
 
 
-# %%
 def testShowMatches(image_1, image_2, partition_width = 20):
     matched_pairs= []
     I = np.linspace(10, 100, 10)
@@ -227,7 +212,6 @@ def testShowMatches(image_1, image_2, partition_width = 20):
     showMatches(image_1, image_2, matched_pairs, partition_width = 20)
 
 
-# %%
 def filterOutliers(matched_pairs, outliers, accuracy, thresh):
 
     set1 = matched_pairs[:, 0]
@@ -297,7 +281,6 @@ def filterOutliers(matched_pairs, outliers, accuracy, thresh):
 
 
 
-# %%
 def calculateError(set1, set2):
    
     E = np.zeros(set1.shape[0])
@@ -309,7 +292,6 @@ def calculateError(set1, set2):
     return E
 
 
-# %%
 def AdaptiveNonMaximalSuppression(images, C_maps, N_best):
     
     imgs = images.copy()
@@ -363,7 +345,6 @@ def AdaptiveNonMaximalSuppression(images, C_maps, N_best):
     return anms_corners, anms_img
 
 
-# %%
 def stitchImagePairs(img0, img1, H):
 
     image0 = img0.copy()
@@ -420,7 +401,7 @@ def stitchImagePairs(img0, img1, H):
     return images_stitched
 
 
-# %%
+
 def TransformImage(image, H): 
 
     image0 = image.copy()
@@ -488,7 +469,6 @@ def cropImageRect(image):
     return crop
 
 
-# %%
 def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
 
     image_array = img_array.copy()
@@ -565,7 +545,6 @@ def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
     return image0
 
 
-# %%
 def autoPano():
 
     Parser = argparse.ArgumentParser()
@@ -659,13 +638,6 @@ def autoPano():
         cv2.imwrite(BasePath + SaveFolderName + "/pano" + str(n) + ".png", Image0)
 
  
-    # print("final merging")
-    # if N_images % 2 == 1:
-    #     merged_images.reverse()
-    # final = joinImages(merged_images, choice, BasePath + SaveFolderName, 100, ShowImages)
-
-
-# %%
 if __name__ == '__main__':
     autoPano()
 
