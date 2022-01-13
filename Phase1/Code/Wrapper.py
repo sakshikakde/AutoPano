@@ -548,7 +548,7 @@ def joinImages(img_array, choice, save_folder_name, n, show_steps = True):
 def autoPano():
 
     Parser = argparse.ArgumentParser()
-    Parser.add_argument('--BasePath', default='/home/sakshi/courses/CMSC733/sakshi_p1/Phase1/', help='base path')
+    Parser.add_argument('--BasePath', default='./Phase1/', help='base path')
     Parser.add_argument('--ImagesFolder', default='Data/Test/TestSet2', help='folder for images')
     Parser.add_argument('--SaveFolderName', default='Code/Results/TestSet2', help='Folder to save results')
     Parser.add_argument('--ShowImages', type = bool, default= False, help='show images or not')
