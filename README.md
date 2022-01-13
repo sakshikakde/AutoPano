@@ -1,47 +1,59 @@
-# Phase 1:
+# Panorama image stitching
+The repository describes in brief our solutions for the [project 1 of CMSC733](https://cmsc733.github.io/2020/proj/p1/). The report is divided into two sections. First section explores the traditional approach to find a homography matrix
+between a set of two images. Second section describes the
+implementation of a supervised and an unsupervised deep learn-
+ing approach of estimating homography between synthetically
+generated data.
+## Phase 1: Traditional methood
+### Sample dataset
+### Corners Detection
+### Adaptive Non-Maximal Suppression
+### Feature Descriptor
+### Feature Matching
+### RANSAC for outlier rejection and to estimate Robust Homography
+### Blending Images
 
 ## How to run the code
-1) Change the directory      
-Eg. cd /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/Code
-
-3) Run the .py script
-
-python3 Wrapper.py --BasePath /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/ --ImagesFolder Data/Train/Set3 --SaveFolderName Code/Results/Set3 
+- Change the location to the root directory      
+- Run the following command:
+```
+python3 Wrapper.py --BasePath ./Phase1/ --ImagesFolder Data/Train/Set3 --SaveFolderName Code/Results/Set3 
+```
 
 ## Parameters 
-1) BasePath : Location for Phase 1. Eg. /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/
-2) ImagesFolder: Location for image folder relative to the BasePath. Eg Data/Test/TestSet2
-3) SaveFolderName: Location where you want to save the results relativ BasePath. Eg. Code/Results/TestSet2
-4) ShowImages: If you want to view the step outputs. Set as False by default
-5) GoSequentially: Go sequentally while stitching or use half split method. Set as false by default.
+- BasePath : Location for Phase 1. Eg. /home/sakshi/courses/CMSC733/sakshi_p1/Phase1/
+- ImagesFolder: Location for image folder relative to the BasePath. Eg Data/Test/TestSet2
+- SaveFolderName: Location where you want to save the results relativ BasePath. Eg. Code/Results/TestSet2
+- ShowImages: If you want to view the step outputs. Set as False by default
+- GoSequentially: Go sequentally while stitching or use half split method. Set as false by default.
 
-We have created the Results folder inside Code folder, but it is empty since the size became too large.
+# Phase 2: Deep learning approach
+We implemented two deep learning approaches to estimate the homography between two images. The deep model effectively combines corner detection, ANMS, feature extraction, feature matching, RANSAC and estimate homography all into one. This not only makes the approach faster but also makes it robust if the network is generalizable.
 
-# Phase 2:
-
-Copy Train, Val and Phase2 (Test data folder was named so in zip file) Folders, to Phase2/Data/
-
-cd Phase2/Code
-
-1) Generate required patches and labels for training the models. Run,
-
+## Data generation
+- Copy Train, Val and Phase2 (Test data folder was named so in zip file) Folders, to Phase2/Data/
+- cd Phase2/Code
+- To generate required patches and labels for training the models, run,
+```
     python3 DataGenerator.py
-    
-2) Train the models.
+```
+## Supervised
+### Training
+```
+python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/supervised/ --ModelType sup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/supervised/
+```
 
-Supervised model Training:
+### Testing
+```
+python3 Test.py --ModelPath ../Checkpoints/supervised/supervisedModel.h5 --BasePath ../Data/Test_synthetic --SavePath ./Results/ --ModelType sup 
+```
 
-    python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/supervised/ --ModelType sup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/supervised/
-
-Unsupervised model Training:
-
-    python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --ModelType Unsup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/unsupervised/
-
-
-Supervised Model Testing:
-
-    python3 Test.py --ModelPath ../Checkpoints/supervised/supervisedModel.h5 --BasePath ../Data/Test_synthetic --SavePath ./Results/ --ModelType sup 
-
-Unsupervised Model Testing:
-
-    python3 Test.py --ModelPath ../Checkpoints/unsupervised/0model.ckpt --BasePath ../Data/Test_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --SavePath ./Results/ --ModelType Unsup
+## Supervised
+### Training
+```
+python3 Train.py --BasePath ../Data/Train_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --ModelType Unsup --NumEpochs 100 --DivTrain 1 --MiniBatchSize 64 --LoadCheckPoint 0 --LogsPath ./Logs/unsupervised/
+```
+### Testing
+```
+python3 Test.py --ModelPath ../Checkpoints/unsupervised/0model.ckpt --BasePath ../Data/Test_synthetic --CheckPointPath ../Checkpoints/unsupervised/ --SavePath ./Results/ --ModelType Unsup
+```
