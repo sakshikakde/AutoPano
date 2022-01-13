@@ -7,11 +7,22 @@ generated data.
 ## Phase 1: Traditional methood
 ### Sample dataset
 ### Corners Detection
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/fp.png)
 ### Adaptive Non-Maximal Suppression
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/anms.png)
 ### Feature Descriptor
+After we get the corner points, we need a descriptor to
+describe the feature for each point. To obtain that, a patch of
+size 40 × 40 centered at each corner point is used. This patch
+is then blurred and sub-sampled to a dimension of 8×8, which
+is then flattened to obtain a 64 × 1 vector.
 ### Feature Matching
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/fm.png)
 ### RANSAC for outlier rejection and to estimate Robust Homography
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/images/ransac.png)
 ### Blending Images
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/Phase1/Results/Set1/pano01.png)
+![alt](https://github.com/sakshikakde/AutoPano/blob/main/Phase1/Results/Set1/pano1001.png)
 
 ## How to run the code
 - Change the location to the root directory      
